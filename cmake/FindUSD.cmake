@@ -1,7 +1,7 @@
 # Simple module to find USD.
 
 if (EXISTS "$ENV{USD_ROOT}")
-    set(USD_ROOT $ENV{USD_ROOT})
+    set(USD_ROOT $ENV{USD_ROOT})    
 endif ()
 
 find_path(USD_INCLUDE_DIR pxr/pxr.h
@@ -27,6 +27,8 @@ if(USD_INCLUDE_DIR AND EXISTS "${USD_INCLUDE_DIR}/pxr/pxr.h")
     endforeach()
     set(USD_VERSION ${USD_MAJOR_VERSION}.${USD_MINOR_VERSION}.${USD_PATCH_VERSION})
 endif()
+
+MESSAGE(STATUS "Got version ${USD_VERSION} and ${USD_LIBRARY_DIR} and {REQUIRED_VARS}")
 
 include(FindPackageHandleStandardArgs)
 

@@ -1,36 +1,22 @@
-include_directories(SYSTEM ../external)
-file(GLOB Z85_SRC ../external/z85/*.c*)
-
-add_subdirectory(obfuscate_pass)
-
-set(PLUGIN_NAME URIResolver)
+set(PLUGIN_NAME S3Resolver)
 
 find_package(Boost REQUIRED)
 find_package(PythonLibs REQUIRED)
 find_package(OpenEXR REQUIRED)
 find_package(TBB REQUIRED)
-find_package(MySQL REQUIRED)
+# find_package(MySQL REQUIRED)
 
 link_directories(${USD_LIBRARY_DIR})
 
-find_library(MYSQL_CLIENT_LIBRARY
-		NAMES "libmysqlclient.a"
-		PATHS ${MYSQL_CONNECTOR_ROOT}/lib
-			/usr/lib/x86_64-linux-gnu
-	     )
-
 file(GLOB SRC *.cpp)
 
-message(STATUS ${Z85_SRC})
-
-add_library(${PLUGIN_NAME} SHARED ${Z85_SRC} ${SRC})
+add_library(${PLUGIN_NAME} SHARED ${SRC})
 set_target_properties(${PLUGIN_NAME} PROPERTIES PREFIX "")
 set_target_properties(${PLUGIN_NAME} PROPERTIES INSTALL_RPATH_USE_LINK_PATH ON)
-target_link_libraries(${PLUGIN_NAME} arch tf plug vt ar ${MYSQL_CLIENT_LIBRARY})
+target_link_libraries(${PLUGIN_NAME} arch tf plug vt ar sdf usd)
 target_include_directories(${PLUGIN_NAME} SYSTEM PRIVATE "${USD_INCLUDE_DIR}")
 target_include_directories(${PLUGIN_NAME} SYSTEM PRIVATE "${Boost_INCLUDE_DIRS}")
 target_include_directories(${PLUGIN_NAME} SYSTEM PRIVATE "${PYTHON_INCLUDE_DIRS}")
-target_include_directories(${PLUGIN_NAME} SYSTEM PRIVATE "${MYSQL_INCLUDE_DIR}")
 target_include_directories(${PLUGIN_NAME} SYSTEM PRIVATE "${OPENEXR_INCLUDE_DIRS}")
 target_include_directories(${PLUGIN_NAME} SYSTEM PRIVATE "${TBB_INCLUDE_DIRS}")
 

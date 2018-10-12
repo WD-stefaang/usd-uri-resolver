@@ -1,0 +1,39 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",    
+    "options": {
+        "cwd": "${workspaceRoot}/build",
+        "env": {
+            "USD_ROOT": "/home/stefaan/usd/build",
+            "PYTHONPATH": "/home/stefaan/usd/build/lib/python",
+            "PXR_PLUGINPATH_NAME": "${workspaceRoot}/S3Resolver",
+            "TF_DEBUG": "AR_RESOLVER_INIT SDF_FILE_FORMAT SDF_ASSET",
+            "LD_LIBARY_PATH": "/home/stefaan/usd/build/lib"
+        }
+    },
+    "tasks": [
+        {
+            "label": "clean",
+            "type": "shell",
+            "command": "rm -rf *",
+            "problemMatcher": []
+        },
+        {
+            "label": "cmake",
+            "type": "shell",
+            "command": "cmake -G 'Unix Makefiles' ..",
+            "problemMatcher": [],            
+        },
+        {
+            "label": "make",
+            "type": "shell",
+            "command": "make -j8 && usdcat ${workspaceRoot}/../example/BaseExample.usda --flatten",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        }
+    ]
+}

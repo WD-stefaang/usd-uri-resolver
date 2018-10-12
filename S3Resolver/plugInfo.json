@@ -1,0 +1,31 @@
+{
+  "Plugins": [
+    {
+      "Info": {
+        "Types": {
+          "S3Resolver": {
+            "bases": [ "ArPackageResolver" ],
+            "extensions": [ "pack", "s3" ]
+          },
+          "S3FileFormat": {
+            "bases": [
+              "SdfFileFormat"
+            ],
+	          "displayName": "S3 object store File Format",
+            "extensions": [
+              "s3"
+            ],
+            "formatId": "s3",
+            "primary": true,
+            "target": "usd"
+          }
+        }
+      },
+      "LibraryPath": "../build/S3Resolver/S3Resolver.so",
+      "Name": "MyS3Resolver",
+      "ResourcePath": "resources",
+      "Root": ".",
+      "Type": "library"
+    }    
+  ]
+}
