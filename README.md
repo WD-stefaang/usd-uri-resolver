@@ -1,23 +1,11 @@
-# USD-URI-resolver
-A generic, URI based resolver for USD, support custom plugins.
+# USD-S3-resolver
+An S3 object store based PackageResolver plugin for USD. Based on LumaPictures's URIResolver.
 
 ## Project Goals
-* Resolve custom URI based for USD files.
-* Provide a generic plugin registry to extend the resolver without modifying its source code.
-* Include example resolvers supporting database based files.
+* Support assets in S3 buckets by referencing them in USD as @someBucket[someAsset.usd].s3@
 
 ## Features
-
-### Current
-* URIResolver - custom resolver for USD.
-* usd_sql::SQL - MySQL database access.
-* obfuscate_pass - A simple tool to convert passwords to a z85 encoded string. WARNING !!! This is not for encrypting your password, but to hide it from artists in an environment. It is extremely simple to "decrypt" and offers no protection.
-
-### Planned
-* Create a plugin registry for extending URIResolver.
-* Move the SQL accessor to a spearete plugin and load it dynamically.
-* Windows support.
-* Simplify the build process.
+*
 
 ## Building
 
