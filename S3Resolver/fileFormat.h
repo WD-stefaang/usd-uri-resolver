@@ -73,15 +73,19 @@ public:
         const SdfSpecHandle &spec,
         std::ostream& out,
         size_t indent) const override;
-
+    
 protected:
     SDF_FILE_FORMAT_FACTORY_ACCESS;
 
-private:
     S3FileFormat();
     virtual ~S3FileFormat();
 
+private:
     virtual bool _IsStreamingLayer(const SdfLayerBase& layer) const override;
+
+    virtual bool _LayersAreFileBased() const override;
+
+    SdfFileFormatConstPtr _usda;
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE

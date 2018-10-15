@@ -1,4 +1,5 @@
-#pragma once
+#ifndef S3_H
+#define S3_H
 
 #include <mutex>
 #include <string>
@@ -12,12 +13,14 @@ namespace usd_s3 {
         ~S3();
         void clear();
 
-        std::string resolve_name(const std::string& path);
+        // std::string resolve_name(const std::string& path);
         bool fetch_asset(const std::string& path);
-        bool matches_schema(const std::string& path);
-        double get_timestamp(const std::string& path);
+        // bool matches_schema(const std::string& path);
+        // double get_timestamp(const std::string& path);
 
     private:
         
-    };
+    };   
 }
+    
+#endif // S3_H

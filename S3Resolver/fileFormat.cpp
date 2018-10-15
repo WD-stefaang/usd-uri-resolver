@@ -1,10 +1,11 @@
 #include "fileFormat.h"
 #include "resolver.h"
+#include "debugCodes.h"
+#include "object.h"
 
 #include <pxr/usd/sdf/fileFormat.h>
 #include <pxr/usd/usd/usdaFileFormat.h>
 #include <pxr/usd/usd/usdzFileFormat.h>
-#include <pxr/usd/usd/zipFile.h>
 
 #include <pxr/usd/ar/packageUtils.h>
 #include <pxr/usd/ar/resolver.h>
@@ -34,6 +35,9 @@ S3FileFormat::S3FileFormat()
                     S3FileFormatTokens->Target,
                     S3FileFormatTokens->Id)
 {
+    TF_DEBUG(USD_S3_FILEFORMAT).Msg("S3FF constructor\n");
+    //bool test = ArGetResolver().FetchToLocalResolvedPath("abc", "def");
+    
 }
 
 S3FileFormat::~S3FileFormat()
@@ -43,23 +47,27 @@ S3FileFormat::~S3FileFormat()
 bool 
 S3FileFormat::IsPackage() const
 {
+    TF_DEBUG(USD_S3_FILEFORMAT).Msg("S3FF ispackage? yeaaah\n");
     return true;
 }
 
 namespace
 {
-
+// this used to be _GetFirstFileInZipFile
+// now just returns root.usdz
 std::string
-_GetFirstFileInZipFile(const std::string& zipFilePath)
+_GetBucketRootFile(const std::string& bucket)
 {
-    const UsdZipFile zipFile = S3ResolverCache::GetInstance()
-        .FindOrOpenZipFile(zipFilePath).second;
-    if (!zipFile) {
+    TF_DEBUG(USD_S3_FILEFORMAT).Msg("S3FF get root file in bucket %s\n", bucket.c_str());
+    const S3object s3file = S3ResolverCache::GetInstance()
+        .FindOrOpenS3File(bucket).second;
+    if (!s3file) {
         return std::string();
     }
 
-    const UsdZipFile::Iterator firstFileIt = zipFile.begin();
-    return (firstFileIt == zipFile.end()) ? std::string() : *firstFileIt;
+    //const S3object::Iterator firstFileIt = s3file.begin();
+    //return (firstFileIt == s3file.end()) ? std::string() : *firstFileIt;
+    return std::string(bucket + "root.usdz");
 }
 
 } // end anonymous namespace
@@ -68,22 +76,27 @@ std::string
 S3FileFormat::GetPackageRootLayerPath(
     const std::string& resolvedPath) const
 {
+    TF_DEBUG(USD_S3_FILEFORMAT).Msg("S3FF get bucket root layer %s\n", resolvedPath.c_str());
     TRACE_FUNCTION();
-    return _GetFirstFileInZipFile(resolvedPath);
+    // TODO: define which object in the bucket is the root layer
+    // for now, just go for root.usdz
+    return _GetBucketRootFile(resolvedPath);
 }
 
 SdfAbstractDataRefPtr
 S3FileFormat::InitData(const FileFormatArguments& args) const
 {
+    TF_DEBUG(USD_S3_FILEFORMAT).Msg("S3FF InitData\n");
     return SdfFileFormat::InitData(args);
 }
 
 bool
 S3FileFormat::CanRead(const std::string& filePath) const
 {
+    TF_DEBUG(USD_S3_FILEFORMAT).Msg("S3FF can read \n");
     TRACE_FUNCTION();
 
-    const std::string firstFile = _GetFirstFileInZipFile(filePath);
+    const std::string firstFile = _GetBucketRootFile(filePath);
     if (firstFile.empty()) {
         return false;
     }
@@ -107,7 +120,7 @@ S3FileFormat::Read(
 {
     TRACE_FUNCTION();
 
-    const std::string firstFile = _GetFirstFileInZipFile(resolvedPath);
+    const std::string firstFile = _GetBucketRootFile(resolvedPath);
     if (firstFile.empty()) {
         return false;
     }
@@ -140,7 +153,7 @@ S3FileFormat::ReadFromString(
     const SdfLayerBasePtr& layerBase,
     const std::string& str) const
 {
-    return SdfFileFormat::FindById(UsdUsdaFileFormatTokens->Id)->
+    return SdfFileFormat::FindById(S3FileFormatTokens->Id)->
         ReadFromString(layerBase, str);
 }
 
@@ -150,7 +163,7 @@ S3FileFormat::WriteToString(
     std::string* str,
     const std::string& comment) const
 {
-    return SdfFileFormat::FindById(UsdUsdaFileFormatTokens->Id)->
+    return SdfFileFormat::FindById(S3FileFormatTokens->Id)->
         WriteToString(layerBase, str, comment);
 }
 
@@ -160,15 +173,24 @@ S3FileFormat::WriteToStream(
     std::ostream& out,
     size_t indent) const
 {
-    return SdfFileFormat::FindById(UsdUsdaFileFormatTokens->Id)->
+    return SdfFileFormat::FindById(S3FileFormatTokens->Id)->
         WriteToStream(spec, out, indent);
 }
+
 
 bool 
 S3FileFormat::_IsStreamingLayer(
     const SdfLayerBase& layer) const
 {
+    TF_DEBUG(USD_S3_FILEFORMAT).Msg("S3FF is streaminglyaer? yes \n");
     return true;
+}
+
+bool 
+S3FileFormat::_LayersAreFileBased() const
+{
+    TF_DEBUG(USD_S3_FILEFORMAT).Msg("S3FF is filebased? no \n");
+    return false;
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE

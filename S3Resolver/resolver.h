@@ -1,12 +1,14 @@
 #ifndef S3_RESOLVER_H
 #define S3_RESOLVER_H
 
-#include <pxr/usd/usd/zipFile.h>
+//#include <pxr/usd/usd/zipFile.h>
 
 #include <pxr/usd/ar/defaultResolver.h>
 #include <pxr/usd/ar/packageResolver.h>
 
 #include <string>
+
+#include "object.h"
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -40,8 +42,8 @@ public:
 /// \class S3ResolverCache
 ///
 /// Singleton thread-local scoped cache used by S3Resolver. This
-/// allows other clients besides Usd_UsdzResolver to take advantage of
-/// caching of zip files while a resolver scoped cache is active.
+/// allows other clients besides S3Resolver to take advantage of
+/// caching of S3 files while a resolver scoped cache is active.
 class S3ResolverCache
 {
 public:
@@ -50,26 +52,23 @@ public:
     S3ResolverCache(const S3ResolverCache&) = delete;
     S3ResolverCache& operator=(const S3ResolverCache&) = delete;
 
-    using AssetAndZipFile = std::pair<std::shared_ptr<ArAsset>, UsdZipFile>;
+    using AssetAndS3object = std::pair<std::shared_ptr<ArAsset>, S3object>;
 
-    /// Returns the ArAsset and UsdZipFile for the given package path.
+    /// Returns the ArAsset and S3object for the given package path.
     /// If a cache scope is active in the current thread, the returned
     /// values will be cached and returned on subsequent calls to this
     /// function for the same packagePath.
-    AssetAndZipFile FindOrOpenZipFile(
-        const std::string& packagePath);
+    AssetAndS3object FindOrOpenS3File(const std::string& packagePath);
 
     /// Open a cache scope in the current thread. While a cache scope 
-    /// is opened, the results of FindOrOpenZipFile will be cached and 
+    /// is opened, the results of FindOrOpenS3File will be cached and 
     /// reused.
-    void BeginCacheScope(
-        VtValue* cacheScopeData);
+    void BeginCacheScope(VtValue* cacheScopeData);
 
     /// Close cache scope in the current thread. Once all cache scopes
-    /// in the current thread are closed, cached zip files will be
+    /// in the current thread are closed, cached s3 files will be
     /// dropped.
-    void EndCacheScope(
-        VtValue* cacheScopeData);
+    void EndCacheScope(VtValue* cacheScopeData);
 
 private:
     S3ResolverCache();
@@ -79,10 +78,11 @@ private:
     using _CachePtr = _ThreadLocalCaches::CachePtr;
     _CachePtr _GetCurrentCache();
 
-    AssetAndZipFile _OpenZipFile(const std::string& packagePath);
+    AssetAndS3object _OpenS3object(const std::string& packagePath);
 
     _ThreadLocalCaches _caches;
 };
+
 
 PXR_NAMESPACE_CLOSE_SCOPE
 

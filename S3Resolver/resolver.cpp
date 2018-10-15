@@ -1,4 +1,3 @@
-
 #include <pxr/base/tf/pathUtils.h>
 #include <pxr/base/tf/registryManager.h>
 #include <pxr/base/tf/type.h>
@@ -20,6 +19,8 @@
 
 #include "resolver.h"
 #include "s3.h"
+#include "object.h"
+#include "debugCodes.h"
 
 /*
  * Depending on the asset count and access frequency, it could be better to store the
@@ -48,15 +49,15 @@ S3ResolverCache::S3ResolverCache()
 
 struct S3ResolverCache::_Cache
 {
-    using _Map = tbb::concurrent_hash_map<std::string, AssetAndZipFile>;
-    _Map _pathToEntryMap;
+    using _Map = tbb::concurrent_hash_map<std::string, AssetAndS3object>;
+    _Map _pathToEntryMap;    
 };
 
 void 
 S3ResolverCache::BeginCacheScope(
     VtValue* cacheScopeData)
 {
-    _caches.BeginCacheScope(cacheScopeData);
+    _caches.BeginCacheScope(cacheScopeData);    
 }
 
 void
@@ -72,31 +73,33 @@ S3ResolverCache::_GetCurrentCache()
     return _caches.GetCurrentCache();
 }
 
-S3ResolverCache::AssetAndZipFile
-S3ResolverCache::_OpenZipFile(const std::string& path)
+S3ResolverCache::AssetAndS3object
+S3ResolverCache::_OpenS3object(const std::string& path)
 {
-    AssetAndZipFile result;
+    AssetAndS3object result;
+    TF_DEBUG(USD_S3_RESOLVER).Msg("S3RC open files3 %s\n", path.c_str());
     result.first = ArGetResolver().OpenAsset(path);
     if (result.first) {
-        result.second = UsdZipFile::Open(result.first);
+        result.second = S3object::Open(result.first);
     }
     return result;
 }
 
-S3ResolverCache::AssetAndZipFile 
-S3ResolverCache::FindOrOpenZipFile(const std::string& packagePath)
+S3ResolverCache::AssetAndS3object 
+S3ResolverCache::FindOrOpenS3File(const std::string& packagePath)
 {
+    TF_DEBUG(USD_S3_RESOLVER).Msg("S3RC Find or open s3 %s\n", packagePath.c_str());
     _CachePtr currentCache = _GetCurrentCache();
     if (currentCache) {
         _Cache::_Map::accessor accessor;
         if (currentCache->_pathToEntryMap.insert(
-                accessor, std::make_pair(packagePath, AssetAndZipFile()))) {
-            accessor->second = _OpenZipFile(packagePath);
+                accessor, std::make_pair(packagePath, AssetAndS3object()))) {
+            accessor->second = _OpenS3object(packagePath);
         }
         return accessor->second;
     }
 
-    return  _OpenZipFile(packagePath);
+    return  _OpenS3object(packagePath);
 }
 
 // ------------------------------------------------------------
@@ -106,25 +109,25 @@ AR_DEFINE_PACKAGE_RESOLVER(S3Resolver, ArPackageResolver)
 
 S3Resolver::S3Resolver() 
 {
-    S3_WARN("[S3Resolver] initiated");
+    TF_DEBUG(USD_S3_RESOLVER).Msg("Loading my S3Resolver hurray\n");
 }
 
 S3Resolver::~S3Resolver()
 {
-    // g_s3.clear();
+    g_s3.clear();
 }
 
 void 
 S3Resolver::BeginCacheScope(
     VtValue* cacheScopeData)
-{
+{ 
     S3ResolverCache::GetInstance().BeginCacheScope(cacheScopeData);
 }
 
 void
 S3Resolver::EndCacheScope(
     VtValue* cacheScopeData)
-{
+{    
     S3ResolverCache::GetInstance().EndCacheScope(cacheScopeData);
 }
 
@@ -134,15 +137,19 @@ S3Resolver::Resolve(
     const std::string& packagedPath)
 {
     std::shared_ptr<ArAsset> asset;
-    UsdZipFile zipFile;
-    std::tie(asset, zipFile) = S3ResolverCache::GetInstance()
-        .FindOrOpenZipFile(packagePath);
+    S3object s3file;
+    TF_DEBUG(USD_S3_RESOLVER).Msg("S3 Resolve! \n");
+    TF_DEBUG(USD_S3_RESOLVER).Msg("S3 Resolve! %s\n", packagePath.c_str());
+    std::tie(asset, s3file) = S3ResolverCache::GetInstance()
+        .FindOrOpenS3File(packagePath);
 
-    if (!zipFile) {
+    if (!s3file) {
         return std::string();
     }
-    return zipFile.Find(packagedPath) != zipFile.end() ? 
-        packagedPath : std::string();
+    // TODO: implement iterators
+    //return s3file.Find(packagedPath) != s3file.end() ? 
+    //    packagedPath : std::string();
+    return packagedPath;
 }
 
 namespace
@@ -153,19 +160,19 @@ class _Asset
 {
 private:
     std::shared_ptr<ArAsset> _sourceAsset;
-    UsdZipFile _zipFile;
+    S3object _s3file;
     const char* _dataInZipFile;
     size_t _offsetInZipFile;
     size_t _sizeInZipFile;
 
 public:
     explicit _Asset(std::shared_ptr<ArAsset>&& sourceAsset,
-                    UsdZipFile&& zipFile,
+                    S3object&& s3file,
                     const char* dataInZipFile,
                     size_t offsetInZipFile,
                     size_t sizeInZipFile)
         : _sourceAsset(std::move(sourceAsset))
-        , _zipFile(std::move(zipFile))
+        , _s3file(std::move(s3file))
         , _dataInZipFile(dataInZipFile)
         , _offsetInZipFile(offsetInZipFile)
         , _sizeInZipFile(sizeInZipFile)
@@ -183,13 +190,13 @@ public:
         {
             void operator()(const char* b)
             {
-                zipFile = UsdZipFile();
+                s3file = S3object();
             }
-            UsdZipFile zipFile;
+            S3object s3file;
         };
 
         _Deleter d;
-        d.zipFile = _zipFile;
+        d.s3file = _s3file;
 
         return std::shared_ptr<const char>(_dataInZipFile, d);
     }
@@ -212,30 +219,35 @@ public:
 
 } // end anonymous namespace
 
+/*
+    open an asset in the S3 bucket
+*/
 std::shared_ptr<ArAsset> 
 S3Resolver::OpenAsset(
     const std::string& packagePath,
     const std::string& packagedPath)
 {
     std::shared_ptr<ArAsset> asset;
-    UsdZipFile zipFile;
-    std::tie(asset, zipFile) = S3ResolverCache::GetInstance()
-        .FindOrOpenZipFile(packagePath);
+    TF_DEBUG(USD_S3_RESOLVER).Msg("S3R openasset %s in package %s\n", packagedPath.c_str(), packagePath.c_str());
+    S3object s3file;
+    std::tie(asset, s3file) = S3ResolverCache::GetInstance()
+        .FindOrOpenS3File(packagePath);
 
-    if (!zipFile) {
+    if (!s3file) {
         return nullptr;
     }
+    // TODO
+    return nullptr;
+    // auto iter = s3file.Find(packagedPath);
+    // if (iter == s3file.end()) {
+    //     return nullptr;
+    // }
 
-    auto iter = zipFile.Find(packagedPath);
-    if (iter == zipFile.end()) {
-        return nullptr;
-    }
-
-    const UsdZipFile::FileInfo info = iter.GetFileInfo();
-    return std::shared_ptr<ArAsset>(
-        new _Asset(
-            std::move(asset), std::move(zipFile),
-            iter.GetFile(), info.dataOffset, info.size));
+    // const S3object::FileInfo info = iter.GetFileInfo();
+    // return std::shared_ptr<ArAsset>(
+    //     new _Asset(
+    //         std::move(asset), std::move(s3file),
+    //         iter.GetFile(), info.dataOffset, info.size));
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE
