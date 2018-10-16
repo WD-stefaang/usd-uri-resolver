@@ -40,7 +40,7 @@ public:
     USD_API
     virtual SdfAbstractDataRefPtr
     InitData(const FileFormatArguments& args) const override;
-
+    
     USD_API
     virtual bool CanRead(const std::string &file) const override;
 

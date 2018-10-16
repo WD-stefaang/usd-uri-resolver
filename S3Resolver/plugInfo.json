@@ -4,8 +4,12 @@
       "Info": {
         "Types": {
           "S3Resolver": {
+            "bases": [ "ArResolver" ],
+            "extensions": [ ]
+          },
+          "S3objectResolver": {
             "bases": [ "ArPackageResolver" ],
-            "extensions": [ "pack", "s3" ]
+            "extensions": [ "s3" ]
           },
           "S3FileFormat": {
             "bases": [
@@ -22,7 +26,7 @@
         }
       },
       "LibraryPath": "../build/S3Resolver/S3Resolver.so",
-      "Name": "MyS3Resolver",
+      "Name": "ActiveScaleResolver",
       "ResourcePath": "resources",
       "Root": ".",
       "Type": "library"

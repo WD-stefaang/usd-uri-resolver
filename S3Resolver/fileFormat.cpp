@@ -35,7 +35,7 @@ S3FileFormat::S3FileFormat()
                     S3FileFormatTokens->Target,
                     S3FileFormatTokens->Id)
 {
-    TF_DEBUG(USD_S3_FILEFORMAT).Msg("S3FF constructor\n");
+    TF_DEBUG(USD_S3_FILEFORMAT).Msg("FileFormat S3FF constructor\n");
     //bool test = ArGetResolver().FetchToLocalResolvedPath("abc", "def");
     
 }
@@ -60,7 +60,7 @@ _GetBucketRootFile(const std::string& bucket)
 {
     TF_DEBUG(USD_S3_FILEFORMAT).Msg("S3FF get root file in bucket %s\n", bucket.c_str());
     const S3object s3file = S3ResolverCache::GetInstance()
-        .FindOrOpenS3File(bucket).second;
+        .FindOrOpenS3object(bucket).second;
     if (!s3file) {
         return std::string();
     }
@@ -177,7 +177,6 @@ S3FileFormat::WriteToStream(
         WriteToStream(spec, out, indent);
 }
 
-
 bool 
 S3FileFormat::_IsStreamingLayer(
     const SdfLayerBase& layer) const
@@ -189,8 +188,8 @@ S3FileFormat::_IsStreamingLayer(
 bool 
 S3FileFormat::_LayersAreFileBased() const
 {
-    TF_DEBUG(USD_S3_FILEFORMAT).Msg("S3FF is filebased? no \n");
-    return false;
+    TF_DEBUG(USD_S3_FILEFORMAT).Msg("S3FF is filebased? yes \n");
+    return true;
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE
