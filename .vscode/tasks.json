@@ -31,7 +31,7 @@
             "type": "shell",
             //"command": "make -j8 && usdcat ${workspaceRoot}/../example/BaseExample.usda --flatten",
             //"command": "make -j8 && usdcat /home/stefaan/usd/example/hello.s3[kitchen.usdz]",
-            "command": "make -j8 && usdview hello.s3[kitchen.usdz]",
+            "command": "make -j8 && usdcat hello.s3[kitchen.usdz]",
             "group": {
                 "kind": "build",
                 "isDefault": true

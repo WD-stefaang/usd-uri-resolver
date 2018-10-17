@@ -149,12 +149,43 @@ namespace usd_s3 {
                 list_objects_outcome.GetError().GetExceptionName() << " " <<
                 list_objects_outcome.GetError().GetMessage() << std::endl;
         };
-        return "./defaultLayer.usd";
+        return "";
     }
 
     bool S3::fetch_asset(const std::string& path) {
         TF_DEBUG(S3_DBG).Msg("S3: fetch_asset %s\n", path.c_str());
-        return false;
+        Aws::Client::ClientConfiguration config;
+        config.scheme = Aws::Http::SchemeMapper::FromString("http");
+        config.proxyHost = "10.249.64.116";
+        config.proxyPort = 80;
+
+        Aws::S3::S3Client s3_client(config);
+
+        Aws::S3::Model::GetObjectRequest object_request;
+        Aws::String bucket_name = get_bucket_name(path).c_str();
+        TF_DEBUG(S3_DBG).Msg("S3: resolve_name stripped: %s\n", bucket_name.c_str());
+        object_request.WithBucket(bucket_name).WithKey("kitchen.usdz");
+
+        auto get_object_outcome = s3_client.GetObject(object_request);        
+
+        if (get_object_outcome.IsSuccess())
+        {
+            TF_DEBUG(S3_DBG).Msg("S3: resolve_name OK\n");
+
+            Aws::OFStream local_file;
+            local_file.open("kitchen.usdz", std::ios::out | std::ios::binary);
+            local_file << get_object_outcome.GetResult().GetBody().rdbuf();
+            std::cout << "Done!" << std::endl;
+            return true;
+        }
+        else
+        {
+            std::cout << "GetObject error: " <<
+                get_object_outcome.GetError().GetExceptionName() << " " <<
+                get_object_outcome.GetError().GetMessage() << std::endl;
+            return false;
+        }
+        
     }    
 
     bool S3::matches_schema(const std::string& path) {

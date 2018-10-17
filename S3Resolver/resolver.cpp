@@ -117,7 +117,7 @@ S3Resolver::~S3Resolver()
 
 bool S3Resolver::IsRelativePath(const std::string& path)
 {
-    TF_DEBUG(USD_S3_RESOLVER).Msg("S3Resolver is relative path %s: %s\n", path.c_str());
+    TF_DEBUG(USD_S3_RESOLVER).Msg("S3Resolver is relative path %s\n", path.c_str());
     return !g_s3.matches_schema(path) && ArDefaultResolver::IsRelativePath(path);
 }
 
@@ -158,8 +158,8 @@ std::string S3Resolver::ResolveWithAssetInfo(
 
 bool S3Resolver::FetchToLocalResolvedPath(const std::string& path, const std::string& resolvedPath)
 {
-    TF_DEBUG(USD_S3_RESOLVER).Msg("S3Resolver DOWNLOAD THIS STUFF: %s\n", path.c_str());
-    return true;
+    TF_DEBUG(USD_S3_RESOLVER).Msg("S3Resolver FETCH THIS STUFF: %s to %s\n", path.c_str(), resolvedPath.c_str());
+    return g_s3.fetch_asset(path);    
 }
 
 

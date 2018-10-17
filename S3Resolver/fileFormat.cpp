@@ -3,6 +3,8 @@
 #include "debugCodes.h"
 #include "object.h"
 
+#include <pxr/usd/sdf/layer.h>
+#include <pxr/usd/sdf/layerBase.h>
 #include <pxr/usd/sdf/fileFormat.h>
 #include <pxr/usd/usd/usdaFileFormat.h>
 #include <pxr/usd/usd/usdzFileFormat.h>
@@ -88,6 +90,17 @@ S3FileFormat::InitData(const FileFormatArguments& args) const
 {
     TF_DEBUG(USD_S3_FILEFORMAT).Msg("S3FF InitData\n");
     return SdfFileFormat::InitData(args);
+}
+
+SdfLayerBaseRefPtr
+S3FileFormat::NewLayer(const SdfFileFormatConstPtr &fileFormat,
+                       const std::string &identifier,
+                       const std::string &realPath,
+                       const ArAssetInfo& assetInfo,
+                       const FileFormatArguments &args) const
+{
+    TF_DEBUG(USD_S3_FILEFORMAT).Msg("S3FF New Layer\n");
+    return SdfFileFormat::NewLayer(fileFormat, identifier, realPath, assetInfo, args);
 }
 
 bool
@@ -191,5 +204,6 @@ S3FileFormat::_LayersAreFileBased() const
     TF_DEBUG(USD_S3_FILEFORMAT).Msg("S3FF is filebased? yes \n");
     return true;
 }
+
 
 PXR_NAMESPACE_CLOSE_SCOPE
