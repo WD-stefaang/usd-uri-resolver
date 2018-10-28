@@ -2,11 +2,13 @@
 #include "debugCodes.h"
 
 #include <pxr/base/tf/diagnosticLite.h>
+#include <pxr/base/tf/fileUtils.h>
 
 #include <aws/core/Aws.h>
 #include <aws/s3/S3Client.h>
+#include <aws/s3/model/HeadObjectRequest.h>
 #include <aws/s3/model/GetObjectRequest.h>
-#include <aws/s3/model/ListObjectsRequest.h>
+#include <aws/s3/model/ListObjectsV2Request.h>
 #include <fstream>
 
 #include <iostream>
@@ -86,96 +88,105 @@ namespace {
 
 namespace usd_s3 {
     Aws::SDKOptions options;
+    Aws::S3::S3Client* s3_client;  
 
     enum CacheState {
-            CACHE_MISSING,
-            CACHE_NEEDS_FETCHING,
-            CACHE_FETCHED
-        };
+        CACHE_MISSING,
+        CACHE_NEEDS_FETCHING,
+        CACHE_FETCHED
+    };
 
-        struct Cache {
-            CacheState state;
-            std::string local_path;
-            double timestamp;
-};
+    struct Cache {
+        CacheState state;
+        std::string local_path;
+        double timestamp;
+    };
 
     S3::S3() {
         //TF_DEBUG(S3_DBG).Msg("S3: MODULE CREATED %s\n");
-        S3_WARN("HELLOWORLD");        
+        TF_DEBUG(S3_DBG).Msg("S3: client setup \n");
         Aws::InitAPI(options);
+
+        Aws::Client::ClientConfiguration config;
+        // TODO: set executor to a PooledThreadExecutor
+        config.scheme = Aws::Http::SchemeMapper::FromString("http");
+        config.proxyHost = "10.249.66.131";
+        config.proxyPort = 80;
+        config.connectTimeoutMs = 3000;
+        s3_client = Aws::New<Aws::S3::S3Client>("s3resolver", config);
+
     }
 
     S3::~S3() {
-        clear();
-    }
-    void S3::clear() {
-        Aws::ShutdownAPI(options);
-        // thread init
-        // delete connections
-        // connections.clear
+        TF_DEBUG(S3_DBG).Msg("S3: client teardown \n");
+        Aws::Delete(s3_client);
+        Aws::ShutdownAPI(options);        
     }
 
+    // checks if a path exists with a ListObjectsV2 (bucket b, prefix p)
+    // better could be a HeadRequest (bucket b, key k)
     std::string S3::resolve_name(const std::string& path) {
         TF_DEBUG(S3_DBG).Msg("S3: resolve_name %s\n", path.c_str());
-        Aws::Client::ClientConfiguration config;
-        config.scheme = Aws::Http::SchemeMapper::FromString("http");
-        config.proxyHost = "10.249.64.116";
-        config.proxyPort = 80;
-
-        Aws::S3::S3Client s3_client(config);
-
-        Aws::S3::Model::ListObjectsRequest objects_request;
+        
+        
         Aws::String bucket_name = get_bucket_name(path).c_str();
-        TF_DEBUG(S3_DBG).Msg("S3: resolve_name stripped: %s\n", bucket_name.c_str());
-        objects_request.WithBucket(bucket_name);
+        Aws::String object_name = get_object_name(path).c_str();
+        TF_DEBUG(S3_DBG).Msg("S3: resolve_name bucket: %s and object: %s\n", bucket_name.c_str(), object_name.c_str());
+        
+        // Aws::S3::Model::ListObjectsV2Request objects_request;
+        // objects_request.WithBucket(bucket_name);
+        // objects_request.WithPrefix(object_name);
 
-        auto list_objects_outcome = s3_client.ListObjects(objects_request);
+        Aws::S3::Model::HeadObjectRequest head_request;
+        head_request.WithBucket(bucket_name);
+        head_request.WithKey(object_name);
 
-        if (list_objects_outcome.IsSuccess())
+        // auto list_objects_outcome = s3_client.ListObjectsV2(objects_request);
+        auto head_object_outcome = s3_client->HeadObject(head_request);
+
+        if (head_object_outcome.IsSuccess())
         {
             TF_DEBUG(S3_DBG).Msg("S3: resolve_name OK\n");
-            Aws::Vector<Aws::S3::Model::Object> object_list =
-                list_objects_outcome.GetResult().GetContents();
-
-            for (auto const &s3_object : object_list)
-            {
-                std::cout << "* " << s3_object.GetKey() << std::endl;
-            }
+            // TODO: prepend working directory from environment variable
+            return "/tmp/" + path.substr(3);
         }
         else
         {
             TF_DEBUG(S3_DBG).Msg("S3: resolve_name NOK\n");
-            std::cout << "ListObjects error: " <<
-                list_objects_outcome.GetError().GetExceptionName() << " " <<
-                list_objects_outcome.GetError().GetMessage() << std::endl;
+            std::cout << "HeadObjects error: " <<
+                head_object_outcome.GetError().GetExceptionName() << " " <<
+                head_object_outcome.GetError().GetMessage() << std::endl;
+            return std::string();
         };
-        return "";
     }
 
-    bool S3::fetch_asset(const std::string& path) {
+    bool S3::fetch_asset(const std::string& path, const std::string& localPath) {
         TF_DEBUG(S3_DBG).Msg("S3: fetch_asset %s\n", path.c_str());
-        Aws::Client::ClientConfiguration config;
-        config.scheme = Aws::Http::SchemeMapper::FromString("http");
-        config.proxyHost = "10.249.64.116";
-        config.proxyPort = 80;
-
-        Aws::S3::S3Client s3_client(config);
-
+                
         Aws::S3::Model::GetObjectRequest object_request;
         Aws::String bucket_name = get_bucket_name(path).c_str();
-        TF_DEBUG(S3_DBG).Msg("S3: resolve_name stripped: %s\n", bucket_name.c_str());
-        object_request.WithBucket(bucket_name).WithKey("kitchen.usdz");
+        Aws::String object_name = get_object_name(path).c_str();
+        TF_DEBUG(S3_DBG).Msg("S3: fetch_object %s from bucket %s\n", object_name.c_str(), bucket_name.c_str());
+        object_request.WithBucket(bucket_name).WithKey(object_name);
 
-        auto get_object_outcome = s3_client.GetObject(object_request);        
+        auto get_object_outcome = s3_client->GetObject(object_request);        
 
         if (get_object_outcome.IsSuccess())
         {
-            TF_DEBUG(S3_DBG).Msg("S3: resolve_name OK\n");
-
+            TF_DEBUG(S3_DBG).Msg("S3: fetch_object get object success\n");
+            // prepare directory
+            const std::string& bucket_path = localPath.substr(0, localPath.find_last_of('/'));
+            if (!TfIsDir(bucket_path)) {
+                bool isSuccess = TfMakeDirs(bucket_path);
+                if (! isSuccess) {
+                    TF_DEBUG(S3_DBG).Msg("S3: fetch_object failed to create bucket directory\n");
+                }
+            }
+            
             Aws::OFStream local_file;
-            local_file.open("kitchen.usdz", std::ios::out | std::ios::binary);
+            local_file.open(localPath, std::ios::out | std::ios::binary);
             local_file << get_object_outcome.GetResult().GetBody().rdbuf();
-            std::cout << "Done!" << std::endl;
+            TF_DEBUG(S3_DBG).Msg("S3: fetch_object \n");
             return true;
         }
         else
@@ -190,11 +201,17 @@ namespace usd_s3 {
 
     bool S3::matches_schema(const std::string& path) {
         //TF_DEBUG(S3_DBG).Msg("S3: matches_schema %s\n", path.c_str());
-        constexpr auto schema_length_short = cexpr_strlen(usd_s3::S3_SUFFIX);
-        return path.compare(path.length()-3, schema_length_short, ".s3") == 0;
+        //constexpr auto schema_length_short = cexpr_strlen(usd_s3::S3_SUFFIX);
+        //return path.compare(path.length()-3, schema_length_short, ".s3") == 0;
+        constexpr auto schema_length_short = cexpr_strlen(usd_s3::S3_PREFIX);
+        return path.compare(0, schema_length_short, "s3:") == 0;
     }
 
     std::string S3::get_bucket_name(const std::string& path) {
-        return path.substr(0, path.length()-3);
+        return path.substr(3, path.find_first_of('/') - 3);
+    }
+
+    std::string S3::get_object_name(const std::string& path) {
+        return path.substr(path.find_first_of('/') + 1);
     }
 }

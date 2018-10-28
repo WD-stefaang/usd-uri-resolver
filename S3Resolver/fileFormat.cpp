@@ -37,7 +37,7 @@ S3FileFormat::S3FileFormat()
                     S3FileFormatTokens->Target,
                     S3FileFormatTokens->Id)
 {
-    TF_DEBUG(USD_S3_FILEFORMAT).Msg("FileFormat S3FF constructor\n");
+    //TF_DEBUG(USD_S3_FILEFORMAT).Msg("S3FF constructor\n");
     //bool test = ArGetResolver().FetchToLocalResolvedPath("abc", "def");
     
 }
@@ -60,12 +60,12 @@ namespace
 std::string
 _GetBucketRootFile(const std::string& bucket)
 {
-    TF_DEBUG(USD_S3_FILEFORMAT).Msg("S3FF get root file in bucket %s\n", bucket.c_str());
-    const S3object s3file = S3ResolverCache::GetInstance()
-        .FindOrOpenS3object(bucket).second;
-    if (!s3file) {
-        return std::string();
-    }
+    // TF_DEBUG(USD_S3_FILEFORMAT).Msg("S3FF get root file in bucket %s\n", bucket.c_str());
+    // const S3object s3file = S3ResolverCache::GetInstance()
+    //     .FindOrOpenS3object(bucket).second;
+    // if (!s3file) {
+    //     return std::string();
+    // }
 
     //const S3object::Iterator firstFileIt = s3file.begin();
     //return (firstFileIt == s3file.end()) ? std::string() : *firstFileIt;
