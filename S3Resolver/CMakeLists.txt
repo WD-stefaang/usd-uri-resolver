@@ -5,7 +5,7 @@ find_package(PythonLibs REQUIRED)
 find_package(OpenEXR REQUIRED)
 find_package(TBB REQUIRED)
 
-find_package(AWSSDK REQUIRED COMPONENTS transfer) # s3-encryption)
+find_package(AWSSDK REQUIRED COMPONENTS s3) # s3-encryption)
 
 link_directories(${USD_LIBRARY_DIR})
 
