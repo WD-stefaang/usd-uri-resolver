@@ -132,7 +132,7 @@ std::string S3Resolver::ResolveWithAssetInfo(
     const std::string& path,
     ArAssetInfo* assetInfo)
 {
-    TF_DEBUG(USD_S3_RESOLVER).Msg("S3Resolver resolve path %s \n", path.c_str());
+    TF_DEBUG(USD_S3_RESOLVER).Msg("S3Resolver RESOLVE %s \n", path.c_str());
 
     if (path.empty()) {
         return path;
@@ -160,7 +160,7 @@ std::string S3Resolver::_ResolveNoCache(const std::string& path)
 bool S3Resolver::FetchToLocalResolvedPath(const std::string& path, const std::string& resolvedPath)
 {
     if (g_s3.matches_schema(path)) {
-        TF_DEBUG(USD_S3_RESOLVER).Msg("S3Resolver FETCH THIS STUFF: %s to %s\n", path.c_str(), resolvedPath.c_str());
+        TF_DEBUG(USD_S3_RESOLVER).Msg("S3Resolver FETCH: %s to %s\n", path.c_str(), resolvedPath.c_str());
         return TfPathExists(resolvedPath) ? true : g_s3.fetch_asset(path, resolvedPath);
     } else {
         return ArDefaultResolver::FetchToLocalResolvedPath(path, resolvedPath);

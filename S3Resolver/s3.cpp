@@ -3,6 +3,7 @@
 
 #include <pxr/base/tf/diagnosticLite.h>
 #include <pxr/base/tf/fileUtils.h>
+#include <pxr/base/tf/pathUtils.h>
 
 #include <aws/core/Aws.h>
 #include <aws/s3/S3Client.h>
@@ -74,6 +75,18 @@ namespace {
         return len - 1;
     }
 
+    std::string get_env_var(const std::string& server_name, const std::string& env_var, const std::string& default_value) {
+        const auto env_first = getenv((server_name + "_" + env_var).c_str());
+        if (env_first != nullptr) {
+            return env_first;
+        }
+        const auto env_second = getenv(env_var.c_str());
+        if (env_second != nullptr) {
+            return env_second;
+        }
+        return default_value;
+    }
+
     // std::string generate_name(const std::string& base, const std::string& extension, char* buffer) {
     //     std::tmpnam(buffer);
     //     std::string ret(buffer);
@@ -110,11 +123,11 @@ namespace usd_s3 {
         Aws::Client::ClientConfiguration config;
         // TODO: set executor to a PooledThreadExecutor
         config.scheme = Aws::Http::SchemeMapper::FromString("http");
-        config.proxyHost = "10.249.66.131";
-        config.proxyPort = 80;
+        config.proxyHost = get_env_var("", PROXY_HOST_ENV_VAR, "").c_str();
+        config.proxyPort = atoi(get_env_var("", PROXY_PORT_ENV_VAR, "").c_str());
         config.connectTimeoutMs = 3000;
+        config.requestTimeoutMs = 3000;
         s3_client = Aws::New<Aws::S3::S3Client>("s3resolver", config);
-
     }
 
     S3::~S3() {
@@ -148,7 +161,8 @@ namespace usd_s3 {
         {
             TF_DEBUG(S3_DBG).Msg("S3: resolve_name OK\n");
             // TODO: prepend working directory from environment variable
-            return "/tmp/" + path.substr(3);
+            std::string cache_path = get_env_var("", CACHE_PATH_ENV_VAR, "/tmp");
+            return TfNormPath(cache_path + "/" + path.substr(3));
         }
         else
         {
@@ -214,4 +228,6 @@ namespace usd_s3 {
     std::string S3::get_object_name(const std::string& path) {
         return path.substr(path.find_first_of('/') + 1);
     }
+
+    
 }
