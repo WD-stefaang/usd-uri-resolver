@@ -2,10 +2,11 @@
 An S3 object store based PackageResolver plugin for USD. Based on LumaPictures's URIResolver.
 
 ## Project Goals
-* Support assets in S3 buckets by referencing them in USD as @someBucket[someAsset.usd].s3@
+* Support assets in S3 buckets by referencing them in USD as @s3:bucket/object.usd@
 
 ## Features
-* TODO
+* Cache USD files to local directory, defaults to /tmp/bucket/object. Change it with USD_S3_CACHE_PATH environment variable
+* Connect to ActiveScale S3 by using environment vars USD_S3_PROXY_HOST and USD_S3_PROXY_PORT.
 
 ## Building
 

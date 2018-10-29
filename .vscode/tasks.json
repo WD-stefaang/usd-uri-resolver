@@ -5,8 +5,9 @@
     "options": {
         "cwd": "${workspaceRoot}/build",
         "env": {
-            "USD_ROOT": "/home/stefaan/usd/build",            
-            "PYTHONPATH": "/home/stefaan/usd/build/lib/python",
+            "USD_ROOT": "${workspaceRoot}/../build",
+            "BOOST_ROOT": "${workspaceRoot}/../build",
+            "PYTHONPATH": "${workspaceRoot}/../build/lib/python",
             "PXR_PLUGINPATH_NAME": "${workspaceRoot}/S3Resolver",
             "TF_DEBUG_PROBLEM": "AR_RESOLVER_INIT USD_S3_RESOLVER USD_S3_FILEFORMAT SDF_ASSET SDF_LAYER S3_DBG",
             "TF_DEBUG": "USD_S3_RESOLVER USD_S3_FILEFORMAT S3_DBG",
