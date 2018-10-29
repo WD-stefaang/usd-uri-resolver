@@ -37,6 +37,6 @@ find_package_handle_standard_args(
     REQUIRED_VARS
     USD_INCLUDE_DIR
     USD_LIBRARY_DIR
-    USD_GENSCHEMA
+    #USD_GENSCHEMA
     VERSION_VAR
     USD_VERSION)
