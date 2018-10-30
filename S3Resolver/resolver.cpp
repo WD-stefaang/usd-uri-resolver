@@ -40,7 +40,7 @@ AR_DEFINE_RESOLVER(S3Resolver, ArResolver)
 
 struct S3Resolver::_Cache
 {
-    using _PathToResolvedPathMap = 
+    using _PathToResolvedPathMap =
         tbb::concurrent_hash_map<std::string, std::string>;
     _PathToResolvedPathMap _pathToResolvedPathMap;
 };
@@ -101,21 +101,21 @@ bool S3Resolver::FetchToLocalResolvedPath(const std::string& path, const std::st
     }
 }
 
-void 
+void
 S3Resolver::BeginCacheScope(
     VtValue* cacheScopeData)
 {
     _cache.BeginCacheScope(cacheScopeData);
 }
 
-void 
+void
 S3Resolver::EndCacheScope(
     VtValue* cacheScopeData)
 {
     _cache.EndCacheScope(cacheScopeData);
 }
 
-S3Resolver::_CachePtr 
+S3Resolver::_CachePtr
 S3Resolver::_GetCurrentCache()
 {
     return _cache.GetCurrentCache();

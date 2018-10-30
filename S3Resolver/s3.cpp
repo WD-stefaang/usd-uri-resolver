@@ -101,7 +101,7 @@ namespace {
 
 namespace usd_s3 {
     Aws::SDKOptions options;
-    Aws::S3::S3Client* s3_client;  
+    Aws::S3::S3Client* s3_client;
 
     enum CacheState {
         CACHE_MISSING,
@@ -133,19 +133,19 @@ namespace usd_s3 {
     S3::~S3() {
         TF_DEBUG(S3_DBG).Msg("S3: client teardown \n");
         Aws::Delete(s3_client);
-        Aws::ShutdownAPI(options);        
+        Aws::ShutdownAPI(options);
     }
 
     // checks if a path exists with a ListObjectsV2 (bucket b, prefix p)
     // better could be a HeadRequest (bucket b, key k)
     std::string S3::resolve_name(const std::string& path) {
         TF_DEBUG(S3_DBG).Msg("S3: resolve_name %s\n", path.c_str());
-        
-        
+
+
         Aws::String bucket_name = get_bucket_name(path).c_str();
         Aws::String object_name = get_object_name(path).c_str();
         TF_DEBUG(S3_DBG).Msg("S3: resolve_name bucket: %s and object: %s\n", bucket_name.c_str(), object_name.c_str());
-        
+
         // Aws::S3::Model::ListObjectsV2Request objects_request;
         // objects_request.WithBucket(bucket_name);
         // objects_request.WithPrefix(object_name);
@@ -176,31 +176,30 @@ namespace usd_s3 {
 
     bool S3::fetch_asset(const std::string& path, const std::string& localPath) {
         TF_DEBUG(S3_DBG).Msg("S3: fetch_asset %s\n", path.c_str());
-                
+
         Aws::S3::Model::GetObjectRequest object_request;
         Aws::String bucket_name = get_bucket_name(path).c_str();
         Aws::String object_name = get_object_name(path).c_str();
-        TF_DEBUG(S3_DBG).Msg("S3: fetch_object %s from bucket %s\n", object_name.c_str(), bucket_name.c_str());
+        TF_DEBUG(S3_DBG).Msg("S3: fetch_asset %s from bucket %s\n", object_name.c_str(), bucket_name.c_str());
         object_request.WithBucket(bucket_name).WithKey(object_name);
 
-        auto get_object_outcome = s3_client->GetObject(object_request);        
+        auto get_object_outcome = s3_client->GetObject(object_request);
 
         if (get_object_outcome.IsSuccess())
         {
-            TF_DEBUG(S3_DBG).Msg("S3: fetch_object get object success\n");
+            TF_DEBUG(S3_DBG).Msg("S3: fetch_asset %s success\n", path.c_str());
             // prepare directory
             const std::string& bucket_path = localPath.substr(0, localPath.find_last_of('/'));
             if (!TfIsDir(bucket_path)) {
                 bool isSuccess = TfMakeDirs(bucket_path);
                 if (! isSuccess) {
-                    TF_DEBUG(S3_DBG).Msg("S3: fetch_object failed to create bucket directory\n");
+                    TF_DEBUG(S3_DBG).Msg("S3: fetch_asset failed to create bucket directory\n");
                 }
             }
-            
+
             Aws::OFStream local_file;
             local_file.open(localPath, std::ios::out | std::ios::binary);
             local_file << get_object_outcome.GetResult().GetBody().rdbuf();
-            TF_DEBUG(S3_DBG).Msg("S3: fetch_object \n");
             return true;
         }
         else
@@ -210,8 +209,8 @@ namespace usd_s3 {
                 get_object_outcome.GetError().GetMessage() << std::endl;
             return false;
         }
-        
-    }    
+
+    }
 
     bool S3::matches_schema(const std::string& path) {
         //TF_DEBUG(S3_DBG).Msg("S3: matches_schema %s\n", path.c_str());
@@ -229,5 +228,5 @@ namespace usd_s3 {
         return path.substr(path.find_first_of('/') + 1);
     }
 
-    
+
 }

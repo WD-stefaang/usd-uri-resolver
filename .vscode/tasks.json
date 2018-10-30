@@ -1,7 +1,7 @@
 {
     // See https://go.microsoft.com/fwlink/?LinkId=733558
     // for the documentation about the tasks.json format
-    "version": "2.0.0",    
+    "version": "2.0.0",
     "options": {
         "cwd": "${workspaceRoot}/build",
         "env": {
@@ -20,25 +20,58 @@
     },
     "tasks": [
         {
-            "label": "clean",
-            "type": "shell",
-            "command": "rm -rf *",
-            "problemMatcher": []
-        },
-        {
             "label": "cmake",
             "type": "shell",
-            "command": "cmake -G 'Unix Makefiles' -v ..",
+            "command": "rm -rf ./* && cmake -G 'Unix Makefiles' -v ..",
+            "group": "build",
             "problemMatcher": [],
         },
         {
             "label": "make",
             "type": "shell",
-            // use this to test cache
-            //"command": "make -j8 && ../../build/bin/usdcat ${workspaceRoot}/../example/RefExample.usda --flattenLayerStack",
-            "command": "make -j8 && ../../build/bin/usdcat -o ../../dump.usdc s3:hello/kitchen.usdz ",
+            "command": "make -j8",
             "group": {
                 "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "direct fetch from S3 - no cache",
+            "type": "shell",
+            "command": "rm /tmp/hello -rf; ../../build/bin/usdcat -o ../../dump.usdc s3:hello/kitchen.usdz ",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "direct fetch from S3 - with cache",
+            "type": "shell",
+            "command": "../../build/bin/usdcat -o ../../dump.usdc s3:hello/kitchen.usdz ",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "referenced fetch by payload from S3 - no cache",
+            "type": "shell",
+            "command": "rm /tmp/kitchen -rf; ../../build/bin/usdcat -o ../../dump.usdc ~/Pictures/usd/kitchen/Kitchen_set.usd --flatten",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "referenced fetch by payload from S3 - with cache",
+            "type": "shell",
+            "command": "../../build/bin/usdcat -o ../../dump.usdc ~/Pictures/usd/kitchen/Kitchen_set.usd --flatten",
+            "group": {
+                "kind": "test",
                 "isDefault": true
             },
             "problemMatcher": []
