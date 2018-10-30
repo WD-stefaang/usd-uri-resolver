@@ -7,10 +7,13 @@
         "env": {
             "USD_ROOT": "${workspaceRoot}/../build",
             "BOOST_ROOT": "${workspaceRoot}/../build",
+            "TBBROOT": "${workspaceRoot}/../build",
+            "LIBRARY_PATH": "${workspaceRoot}/../build/lib",
             "PYTHONPATH": "${workspaceRoot}/../build/lib/python",
             "PXR_PLUGINPATH_NAME": "${workspaceRoot}/S3Resolver",
-            "TF_DEBUG_PROBLEM": "AR_RESOLVER_INIT USD_S3_RESOLVER USD_S3_FILEFORMAT SDF_ASSET SDF_LAYER S3_DBG",
+            "TF_DEBUG_OPTIONS": "AR_RESOLVER_INIT USD_S3_RESOLVER USD_S3_FILEFORMAT SDF_ASSET SDF_LAYER S3_DBG",
             "TF_DEBUG": "USD_S3_RESOLVER USD_S3_FILEFORMAT S3_DBG",
+            // configure proxy to an ActiveScale system
             "USD_S3_PROXY_HOST": "10.249.66.131",
             "USD_S3_PROXY_PORT": "80",
         }
@@ -25,15 +28,15 @@
         {
             "label": "cmake",
             "type": "shell",
-            "command": "cmake -G 'Unix Makefiles' ..",
-            "problemMatcher": [],            
+            "command": "cmake -G 'Unix Makefiles' -v ..",
+            "problemMatcher": [],
         },
         {
             "label": "make",
             "type": "shell",
             // use this to test cache
-            "command": "make -j8 && ../../build/bin/usdcat ${workspaceRoot}/../example/RefExample.usda --flattenLayerStack",
-            // "command": "make -j8 && ../../build/bin/usdresolve s3:hello/kitchen.usdz",
+            //"command": "make -j8 && ../../build/bin/usdcat ${workspaceRoot}/../example/RefExample.usda --flattenLayerStack",
+            "command": "make -j8 && ../../build/bin/usdcat -o ../../dump.usdc s3:hello/kitchen.usdz ",
             "group": {
                 "kind": "build",
                 "isDefault": true
