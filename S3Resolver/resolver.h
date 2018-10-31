@@ -32,31 +32,27 @@ public:
 
     std::string _ResolveNoCache(const std::string& path);
 
-    // void UpdateAssetInfo(
-    //     const std::string& identifier,
-    //     const std::string& filePath,
-    //     const std::string& fileVersion,
-    //     ArAssetInfo* assetInfo) override;
-    
-    // VtValue GetModificationTimestamp(
-    //     const std::string& path,
-    //     const std::string& resolvedPath) override;
+    virtual bool IsRelativePath(const std::string& path);
 
-    virtual void BeginCacheScope(
-        VtValue* cacheScopeData) override;
-    
-    virtual void EndCacheScope(
-        VtValue* cacheScopeData) override;
+    VtValue GetModificationTimestamp(
+        const std::string& path,
+        const std::string& resolvedPath) override;
 
     virtual bool FetchToLocalResolvedPath(
         const std::string& path,
         const std::string& resolvedPath) override;
 
+    virtual void BeginCacheScope(
+        VtValue* cacheScopeData) override;
+
+    virtual void EndCacheScope(
+        VtValue* cacheScopeData) override;
+
 private:
     struct _Cache;
     using ResolveCache = ArThreadLocalScopedCache<_Cache>;
     using _CachePtr = ResolveCache::CachePtr;
-    ResolveCache _cache;    
+    ResolveCache _cache;
     _CachePtr _GetCurrentCache();
 };
 
