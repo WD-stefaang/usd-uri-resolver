@@ -109,7 +109,7 @@ bool S3Resolver::FetchToLocalResolvedPath(const std::string& path, const std::st
         //     // TODO: check Date Modified
         //     return true;
         // } else {
-            TF_DEBUG(USD_S3_RESOLVER).Msg("S3Resolver FETCH: %s to %s\n", path.c_str(), resolvedPath.c_str());
+            TF_DEBUG(USD_S3_RESOLVER).Msg("S3Resolver FETCH %s to %s\n", path.c_str(), resolvedPath.c_str());
             return g_s3.fetch_asset(path, resolvedPath);
         // }
     } else {

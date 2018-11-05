@@ -1,38 +1,54 @@
 # Usage of the URI Resolver
 
-Currently the URI Resolver provides support for an alternative protocol, when referencing other usd files, namely loading data from an SQL database.
+Currently the URI Resolver provides support for an alternative protocol, when referencing other usd files, namely loading data from an S3 object store.
 
-## SQL Protocol
+## S3 Protocol
 
 #### Request URL
 
-SQL protocol can be accessed, by using sql://<server_name><asset_path> when referencing assets in a USD file.
+S3 protocol can be accessed by using s3:<bucket_name>/<object_name> when referencing assets in a USD file.
 
-Server name
-- Can be either an IP address or a host name.
-
-Asset path
-- Need to start with /, just like on a normal file SYSTEM
-- Need to end with an extension, that represent the data storage format in the database (usd currently)
-
-#### Table layout
-
-The SQL resolver expects a table, with 3 entries.
-- path - CHAR / VARCHAR containing the path to the asset
-- data - (LONG/MEDIUM/SHORT)BLOB containing the data.
-- timestamp - TIMESTAMP containing the last asset modification time. Set the expression to ON UPDATE CURRENT_TIMESTAMP to always keep up to date with changes, and make sure timezones are setup correctly on the databases.
+```
+usdcat s3:hello/world.usdz
+```
 
 #### Environment variables supported by the resolver
 
-Each environment variable can be either setup globally, or server specific. First the server specific variable is queried, then the global one, then the default value is used. Server specific variables can be setup by prefixing the environment variable with <server_name>_ . For example USD_SQL_PASSWD becomes sv-dev01.luma.mel_USD_SQL_PASSWD if specialized for that given server.
+The S3 resolver supports the following environment variables.
 
-- USD_SQL_DB - Database name on the SQL server. Default value is usd.
-- USD_SQL_USER - User to access the database. Default value is root.
-- USD_SQL_PASSWD - Password for the user to access the database. Default value is the obfuscated version of 12345678.
-- USD_SQL_PORT - Port to access the database. Default value is 3306.
-- USD_SQL_TABLE - Name of the table containing the data. Default value is headers.
-- USD_SQL_CACHE_PATH - Name of the local cache path to save usd files. Default value is /tmp.
+- USD_S3_PROXY_HOST - Proxy host for S3 access, should point to an ActiveScale system node.
+- USD_S3_PROXY_PORT - Proxy port for S3 access, defaults to port 80 for the HTTP scheme.
+- USD_S3_CACHE_PATH - Name of the local cache path to save usd files. Default value is /tmp.
 
-#### Password obfuscation
+Create the S3 credentials in `~/.aws/credentials` with
+```
+aws configure
+```
 
-To avoid storing passwords directly in pipeline files (typically python), the resolver provides a small application that obfuscates passwords. The usage is simple, just call uri_resolver_obfuscate_pass <password> and use the returned value when setting up environment variables. The goal of this is not to provide absolute safety, but to hide passwords from the non-coder eyes.
+You can make use of AWS cli profiles. More info [here](https://docs.aws.amazon.com/cli/latest/userguide/cli-multiple-profiles.html).
+```
+export AWS_PROFILE=user2
+```
+
+#### Payload conversion
+
+Example script to convert the payloads in the kitchen set to s3 urls and upload them to an s3 bucket on an ActiveScale endpoint.
+```
+cd kitchen
+find ./assets -name "*payload.usd" -exec sed -i 's#references = @./#references = @s3:kitchen/#' {} \;
+
+export EP="--endpoint-url http://system-node-ipaddress"
+aws s3 mb s3://kitchen ${EP}
+find ./assets -name "*geom.usd" -exec aws s3 cp {} s3://kitchen ${EP} \;
+```
+
+#### Versioning
+
+Enable versioning on a bucket
+```
+aws s3api put-bucket-versioning --bucket kitchen --versioning-configuration Status=Enabled ${EP}
+```
+Any objects uploaded to this bucket are now versioned. They can be fetched as follows
+```
+usdview s3://hello/kitchen.usdz?versionId=FmpErZBtDpMNI3YZkcm1UjxJ_91yFQJUcUtL0Gtr8gPnLWfK"
+```

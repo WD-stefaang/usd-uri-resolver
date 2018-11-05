@@ -39,7 +39,7 @@
         {
             "label": "direct fetch from S3 - no cache",
             "type": "shell",
-            "command": "rm /tmp/hello -rf; ../../build/bin/usdcat -o ../../dump.usdc s3:hello/kitchen.usdz ",
+            "command": "rm /tmp/hello -rf; ../../build/bin/usdcat -o ../../dump.usdc s3://hello/kitchen.usdz?versionId=FmpErZBtDpMNI3YZkcm1UjxJ_91yFQJUcUtL0Gtr8gPnLWfK",
             "group": {
                 "kind": "test",
                 "isDefault": true

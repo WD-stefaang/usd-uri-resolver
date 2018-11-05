@@ -75,17 +75,63 @@ namespace {
         return len - 1;
     }
 
+    // Parse an S3 url and strip off the prefix
+    // e.g. s3://bucket/object.usd returns bucket/object.usd
+    std::string parse_path(const std::string& path) {
+        constexpr auto schema_length_short = cexpr_strlen(usd_s3::S3_PREFIX_SHORT);
+        constexpr auto schema_length = cexpr_strlen(usd_s3::S3_PREFIX);
+        if (path.find(usd_s3::S3_PREFIX) == 0) {
+            return path.substr(schema_length);
+        } else {
+            return path.substr(schema_length_short);
+        }
+    }
+
+    // Get the bucket from a parsed path
+    // e.g. 'bucket/object.usd' returns 'bucket'
+    //      'bucket/somedir/object.usd' returns 'bucket'
+    const std::string get_bucket_name(const std::string& path) {
+        return path.substr(0, path.find_first_of('/'));
+    }
+
+    // Get the object from a parsed path
+    // e.g. 'bucket/object.usd' returns 'object.usd'
+    //      'bucket/somedir/object.usd' returns 'somedir/object.usd'
+    //      'bucket/object.usd?versionId=abc123' returns object.usd
+    const std::string get_object_name(const std::string& path) {
+        const int i = path.find_first_of('/');
+        return path.substr(i, path.find_first_of('?') - i);
+    }
+
+    // Check if a parsed path uses S3 versioning
+    // e.g. 'bucket/object.usd' returns False
+    //      'bucket/object.usd?versionId=abc123' returns True
+    const bool uses_versioning(const std::string& path) {
+        return path.find("versionId=") > 0;
+    }
+
+    // Get the version ID of a parsed path uses S3 versioning
+    // e.g. 'bucket/object.usd' returns an empty string
+    //      'bucket/object.usd?versionId=abc123' returns abc123
+    const std::string get_object_versionid(const std::string& path) {
+        const int i = path.find_first_of('?');
+        if (i < 0) {
+            return std::string();
+        }
+        const int j = path.find_first_of("versionId=", i);
+        if (j < 0) {
+            return std::string();
+        }
+        return path.substr(j + 10);
+    }
+
     // get an environment variable
-    // std::string get_env_var(const std::string& server_name, const std::string& env_var, const std::string& default_value) {
-    //     const auto env_first = getenv((server_name + "_" + env_var).c_str());
-    //     if (env_first != nullptr) {
-    //         return env_first;
-    //     }
     std::string get_env_var(const std::string& env_var, const std::string& default_value) {
         const auto env_var_value = getenv(env_var.c_str());
         return (env_var_value != nullptr) ? env_var_value : default_value;
     }
 
+    // TODO: this one may be required to fully support versioning
     // std::string generate_name(const std::string& base, const std::string& extension, char* buffer) {
     //     std::tmpnam(buffer);
     //     std::string ret(buffer);
@@ -112,52 +158,50 @@ namespace usd_s3 {
     struct Cache {
         CacheState state;
         std::string local_path;
-        double timestamp;
+        double timestamp;       // when the object was accessed
+        double date_modified;   // when the object was modified
     };
 
-    const std::string get_bucket_name(const std::string& path) {
-        // TODO: refactor with S3_PREFIX
-        return path.substr(3, path.find_first_of('/') - 3);
-    }
+    std::map<std::string, Cache> cached_requests;
 
-    const std::string get_object_name(const std::string& path) {
-        // TODO: refactor with S3_PREFIX
-        return path.substr(path.find_first_of('/') + 1);
-    }
-
-    std::string fill_cache_data(const std::string& path, Cache& cache) {
-        Aws::String bucket_name = get_bucket_name(path).c_str();
-        Aws::String object_name = get_object_name(path).c_str();
-        TF_DEBUG(S3_DBG).Msg("S3: resolve_name bucket: %s and object: %s\n", bucket_name.c_str(), object_name.c_str());
-
-        // Aws::S3::Model::ListObjectsV2Request objects_request;
-        // objects_request.WithBucket(bucket_name);
-        // objects_request.WithPrefix(object_name);
+    std::string check_object(const std::string& path, Cache& cache) {
+        if (s3_client == nullptr) {
+            TF_DEBUG(S3_DBG).Msg("S3: check_object - abort due to s3_client nullptr\n");
+            return std::string();
+        }
 
         Aws::S3::Model::HeadObjectRequest head_request;
-        head_request.WithBucket(bucket_name);
-        head_request.WithKey(object_name);
+        Aws::String bucket_name = get_bucket_name(path).c_str();
+        Aws::String object_name = get_object_name(path).c_str();
+        head_request.WithBucket(bucket_name).WithKey(object_name);
 
-        // auto list_objects_outcome = s3_client.ListObjectsV2(objects_request);
+        if (uses_versioning(path)) {
+            Aws::String object_versionid = get_object_versionid(path).c_str();
+            head_request.WithVersionId(object_versionid);
+            TF_DEBUG(S3_DBG).Msg("S3: check_object bucket: %s and object: %s and version: %s\n",
+                bucket_name.c_str(), object_name.c_str(), object_versionid.c_str());
+        } else {
+            TF_DEBUG(S3_DBG).Msg("S3: check_object bucket: %s and object: %s\n", bucket_name.c_str(), object_name.c_str());
+        }
+
         auto head_object_outcome = s3_client->HeadObject(head_request);
 
         if (head_object_outcome.IsSuccess())
         {
-
             // TODO set cache_dir in S3 constructor
             const std::string cache_dir = get_env_var(CACHE_PATH_ENV_VAR, "/tmp");
-            const std::string cache_path = TfNormPath(cache_path + "/" + path.substr(3));
+            const std::string cache_path = TfNormPath(cache_path + "/" + bucket_name.c_str() + "/" + object_name.c_str());
             double date_modified = head_object_outcome.GetResult().GetLastModified().UnderlyingTimestamp().time_since_epoch().count();
-            TF_DEBUG(S3_DBG).Msg("S3: resolve_name OK %.0f\n", date_modified);
+            TF_DEBUG(S3_DBG).Msg("S3: check_object OK %.0f\n", date_modified);
             // store date modified in cache
             cache.state = CACHE_NEEDS_FETCHING;
-            cache.timestamp = 1;
+            cache.timestamp = date_modified;
             cache.local_path = cache_path;
             return cache_path;
         }
         else
         {
-            TF_DEBUG(S3_DBG).Msg("S3: resolve_name NOK\n");
+            TF_DEBUG(S3_DBG).Msg("S3: check_object NOK\n");
             cache.timestamp = INVALID_TIME;
             std::cout << "HeadObjects error: " <<
                 head_object_outcome.GetError().GetExceptionName() << " " <<
@@ -167,23 +211,37 @@ namespace usd_s3 {
     }
 
     bool fetch_object(const std::string& path, Cache& cache) {
+        if (s3_client == nullptr) {
+            TF_DEBUG(S3_DBG).Msg("S3: fetch_object - abort due to s3_client nullptr\n");
+            return false;
+        }
+
         Aws::S3::Model::GetObjectRequest object_request;
         Aws::String bucket_name = get_bucket_name(path).c_str();
         Aws::String object_name = get_object_name(path).c_str();
-        TF_DEBUG(S3_DBG).Msg("S3: fetch_asset %s from bucket %s\n", object_name.c_str(), bucket_name.c_str());
         object_request.WithBucket(bucket_name).WithKey(object_name);
+
+        if (uses_versioning(path)) {
+            Aws::String object_versionid = get_object_versionid(path).c_str();
+            object_request.WithVersionId(object_versionid);
+            TF_DEBUG(S3_DBG).Msg("S3: fetch_object bucket: %s and object: %s and version: %s\n",
+                bucket_name.c_str(), object_name.c_str(), object_versionid.c_str());
+        } else {
+            TF_DEBUG(S3_DBG).Msg("S3: fetch_object bucket: %s and object: %s\n", bucket_name.c_str(), object_name.c_str());
+        }
 
         auto get_object_outcome = s3_client->GetObject(object_request);
 
         if (get_object_outcome.IsSuccess())
         {
-            TF_DEBUG(S3_DBG).Msg("S3: fetch_asset %s success\n", path.c_str());
-            // prepare directory
+            TF_DEBUG(S3_DBG).Msg("S3: fetch_object %s success\n", path.c_str());
+            // TODO: support directories in object_name
+            // prepare cache directory
             const std::string& bucket_path = cache.local_path.substr(0, cache.local_path.find_last_of('/'));
             if (!TfIsDir(bucket_path)) {
                 bool isSuccess = TfMakeDirs(bucket_path);
                 if (! isSuccess) {
-                    TF_DEBUG(S3_DBG).Msg("S3: fetch_asset failed to create bucket directory\n");
+                    TF_DEBUG(S3_DBG).Msg("S3: fetch_object failed to create bucket directory\n");
                     return false;
                 }
             }
@@ -193,6 +251,7 @@ namespace usd_s3 {
             local_file << get_object_outcome.GetResult().GetBody().rdbuf();
             cache.timestamp = get_object_outcome.GetResult().GetLastModified().UnderlyingTimestamp().time_since_epoch().count();
             TF_DEBUG(S3_DBG).Msg("S3: fetch_object OK %.0f\n", cache.timestamp);
+            TF_DEBUG(S3_DBG).Msg("S3: fetch_object version: %s\n", get_object_outcome.GetResult().GetVersionId().c_str());
             cache.state = CACHE_FETCHED;
             return true;
         }
@@ -205,15 +264,12 @@ namespace usd_s3 {
         }
     }
 
-    std::map<std::string, Cache> cached_requests;
-
     S3::S3() {
-        //TF_DEBUG(S3_DBG).Msg("S3: MODULE CREATED %s\n");
         TF_DEBUG(S3_DBG).Msg("S3: client setup \n");
         Aws::InitAPI(options);
 
         Aws::Client::ClientConfiguration config;
-        // TODO: set executor to a PooledThreadExecutor
+        // TODO: set executor to a PooledThreadExecutor to limit the number of threads
         config.scheme = Aws::Http::SchemeMapper::FromString("http");
         config.proxyHost = get_env_var(PROXY_HOST_ENV_VAR, "").c_str();
         config.proxyPort = atoi(get_env_var(PROXY_PORT_ENV_VAR, "80").c_str());
@@ -228,11 +284,11 @@ namespace usd_s3 {
         Aws::ShutdownAPI(options);
     }
 
-    // checks if a path exists with a ListObjectsV2 (bucket b, prefix p)
-    // better could be a HeadRequest (bucket b, key k)
-    std::string S3::resolve_name(const std::string& path) {
+    // Resolve an asset path such as 's3://hello/world.usd'
+    // Checks if the asset exists and returns a local path for the asset
+    std::string S3::resolve_name(const std::string& asset_path) {
+        const auto path = parse_path(asset_path);
         TF_DEBUG(S3_DBG).Msg("S3: resolve_name %s\n", path.c_str());
-
         const auto cached_result = cached_requests.find(path);
         if (cached_result != cached_requests.end()) {
             if (cached_result->second.state != CACHE_MISSING) {
@@ -240,23 +296,25 @@ namespace usd_s3 {
                 return cached_result->second.local_path;
             }
             TF_DEBUG(S3_DBG).Msg("S3: resolve_name - refresh cached result for %s\n", path.c_str());
-            return fill_cache_data(path, cached_result->second);
+            return check_object(path, cached_result->second);
         } else {
             Cache cache{
                 CACHE_MISSING,
                 ""
             };
             TF_DEBUG(S3_DBG).Msg("S3: resolve_name - no cache for %s\n", path.c_str());
-            std::string result = fill_cache_data(path, cache);
+            std::string result = check_object(path, cache);
             cached_requests.insert(std::make_pair(path, cache));
             return result;
         }
 
     }
 
-    bool S3::fetch_asset(const std::string& path, const std::string& localPath) {
+    // Fetch an asset to a local path
+    // The asset should be resolved first and exist in the cache
+    bool S3::fetch_asset(const std::string& asset_path, const std::string& local_path) {
+        const auto path = parse_path(asset_path);
         TF_DEBUG(S3_DBG).Msg("S3: fetch_asset %s\n", path.c_str());
-
         if (s3_client == nullptr) {
             TF_DEBUG(S3_DBG).Msg("S3: fetch_asset - abort due to s3_client nullptr\n");
             return false;
@@ -272,7 +330,7 @@ namespace usd_s3 {
             // ensure cache state is up to date
             // there is no guarantee that get_timestamp was called prior to fetch
             Cache cache{CACHE_MISSING, ""};
-            fill_cache_data(path, cache);
+            check_object(path, cache);
             if (cache.timestamp == INVALID_TIME) {
                 cached_result->second.state = CACHE_MISSING;
             } else if (cache.timestamp > cached_result->second.timestamp) {
@@ -282,12 +340,12 @@ namespace usd_s3 {
         }
 
         if (cached_result->second.state == CACHE_MISSING) {
-            TF_DEBUG(S3_DBG).Msg("S3: fetch_asset - Asset not found, no fetch\n");
+            TF_DEBUG(S3_DBG).Msg("S3: fetch_asset - asset not found, no fetch\n");
             return false;
         }
 
         if (cached_result->second.state == CACHE_NEEDS_FETCHING) {
-            TF_DEBUG(S3_DBG).Msg("S3: fetch_asset - Cache needed fetching\n");
+            TF_DEBUG(S3_DBG).Msg("S3: fetch_asset - cache needed fetching\n");
             cached_result->second.state = CACHE_MISSING; // we'll set this up if fetching is successful
             bool success = fetch_object(path, cached_result->second);
             if (success) {
@@ -296,38 +354,43 @@ namespace usd_s3 {
 
             }
         } else {
-            TF_DEBUG(S3_DBG).Msg("S3: fetch_asset - Cache does not need fetch\n");
+            TF_DEBUG(S3_DBG).Msg("S3: fetch_asset - cache does not need fetch\n");
         }
         return true;
     }
 
+    // returns true if the path matches the S3 schema
     bool S3::matches_schema(const std::string& path) {
-        //TF_DEBUG(S3_DBG).Msg("S3: matches_schema %s\n", path.c_str());
-        //constexpr auto schema_length_short = cexpr_strlen(usd_s3::S3_SUFFIX);
-        //return path.compare(path.length()-3, schema_length_short, ".s3") == 0;
-        constexpr auto schema_length_short = cexpr_strlen(usd_s3::S3_PREFIX);
-        return path.compare(0, schema_length_short, "s3:") == 0;
+        constexpr auto schema_length_short = cexpr_strlen(usd_s3::S3_PREFIX_SHORT);
+        return path.compare(0, schema_length_short, usd_s3::S3_PREFIX_SHORT) == 0;
     }
 
     double S3::get_timestamp(const std::string& asset_path) {
+        const auto path = parse_path(asset_path);
         if (s3_client == nullptr) {
             return 1.0;
         }
 
-        //mutex_scoped_lock sc(connection_mutex);
-        const auto cached_result = cached_requests.find(asset_path);
+        const auto cached_result = cached_requests.find(path);
         if (cached_result == cached_requests.end() ||
                 cached_result->second.state == CACHE_MISSING) {
             S3_WARN("[S3Resolver] %s is missing when querying timestamps!",
-                    asset_path.c_str());
+                    path.c_str());
             return 1.0;
         } else {
-            auto ret = 2.0; //get_timestamp_raw(connection, table_name, asset_path);
+            // Get latest status
+            Cache tmp_cache{CACHE_MISSING, ""};
+            check_object(path, tmp_cache);
+            auto ret = tmp_cache.timestamp;
             if (ret == INVALID_TIME) {
                 cached_result->second.state = CACHE_MISSING;
                 ret = cached_result->second.timestamp;
+                TF_DEBUG(S3_DBG).Msg("S3: get_timestamp NOK missing %.0f \n", cached_result->second.timestamp);
             } else if (ret > cached_result->second.timestamp) {
                 cached_result->second.state = CACHE_NEEDS_FETCHING;
+                TF_DEBUG(S3_DBG).Msg("S3: get_timestamp NOK needs fetch - %.0f > %.0f \n", ret, cached_result->second.timestamp);
+            } else {
+                TF_DEBUG(S3_DBG).Msg("S3: get_timestamp OK - %.0f \n", cached_result->second.timestamp);
             }
             return ret;
         }

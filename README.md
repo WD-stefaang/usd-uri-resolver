@@ -25,7 +25,7 @@ Get the [AWS sdk for C++](https://github.com/aws/aws-sdk-cpp) as follows
 cd src
 git clone https://github.com/aws/aws-sdk-cpp
 cd ../build
-cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_ONLY="s3;transfer" ../src/aws-sdk-cpp/
+cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_ONLY="s3" ../src/aws-sdk-cpp/
 make && sudo make install
 ```
 
@@ -59,7 +59,7 @@ s3 cp kitchen.usdz s3://hello/kitchen.usdz
 Set environment variable PXR_PLUGINPATH_NAME to the path with the S3Resolver plugInfo.json file.
 Now use the usd tools such as usdview, usdcat, ...
 ```
-usdview hello[kitchen.usdz].s3
+usdview s3:hello/kitchen.usdz
 ```
 See .vscode/tasks.json for an example.
 
