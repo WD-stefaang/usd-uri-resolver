@@ -107,7 +107,7 @@ namespace {
     // e.g. 'bucket/object.usd' returns False
     //      'bucket/object.usd?versionId=abc123' returns True
     const bool uses_versioning(const std::string& path) {
-        return path.find("versionId=") > 0;
+        return path.find("versionId=") != std::string::npos;
     }
 
     // Get the version ID of a parsed path uses S3 versioning
@@ -191,7 +191,7 @@ namespace usd_s3 {
             // TODO set cache_dir in S3 constructor
             const std::string cache_dir = get_env_var(CACHE_PATH_ENV_VAR, "/tmp");
             const std::string cache_path = TfNormPath(cache_path + "/" + bucket_name.c_str() + "/" + object_name.c_str());
-            double date_modified = head_object_outcome.GetResult().GetLastModified().UnderlyingTimestamp().time_since_epoch().count();
+            double date_modified = head_object_outcome.GetResult().GetLastModified().SecondsWithMSPrecision();
             TF_DEBUG(S3_DBG).Msg("S3: check_object OK %.0f\n", date_modified);
             // store date modified in cache
             cache.state = CACHE_NEEDS_FETCHING;
@@ -249,9 +249,9 @@ namespace usd_s3 {
             Aws::OFStream local_file;
             local_file.open(cache.local_path, std::ios::out | std::ios::binary);
             local_file << get_object_outcome.GetResult().GetBody().rdbuf();
-            cache.timestamp = get_object_outcome.GetResult().GetLastModified().UnderlyingTimestamp().time_since_epoch().count();
+            cache.timestamp = get_object_outcome.GetResult().GetLastModified().SecondsWithMSPrecision();
             TF_DEBUG(S3_DBG).Msg("S3: fetch_object OK %.0f\n", cache.timestamp);
-            TF_DEBUG(S3_DBG).Msg("S3: fetch_object version: %s\n", get_object_outcome.GetResult().GetVersionId().c_str());
+            //TF_DEBUG(S3_DBG).Msg("S3: fetch_object version: %s\n", get_object_outcome.GetResult().GetVersionId().c_str());
             cache.state = CACHE_FETCHED;
             return true;
         }

@@ -30,8 +30,6 @@ public:
         const std::string& path,
         ArAssetInfo* assetInfo) override;
 
-    std::string _ResolveNoCache(const std::string& path);
-
     virtual bool IsRelativePath(const std::string& path);
 
     VtValue GetModificationTimestamp(

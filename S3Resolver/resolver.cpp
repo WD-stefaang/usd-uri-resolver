@@ -67,36 +67,35 @@ std::string S3Resolver::ResolveWithAssetInfo(
     const std::string& path,
     ArAssetInfo* assetInfo)
 {
-    TF_DEBUG(USD_S3_RESOLVER).Msg("S3Resolver RESOLVE %s \n", path.c_str());
-
     if (path.empty()) {
         return path;
     }
 
+    // S3 assets have their own cache
+    if (g_s3.matches_schema(path)) {
+        TF_DEBUG(USD_S3_RESOLVER).Msg("S3Resolver RESOLVE %s \n", path.c_str());
+        return g_s3.resolve_name(path);
+    }
+    // handle other assets with the default cache
     if (_CachePtr currentCache = _GetCurrentCache()) {
         _Cache::_PathToResolvedPathMap::accessor accessor;
         if (currentCache->_pathToResolvedPathMap.insert(
                 accessor, std::make_pair(path, std::string()))) {
-            accessor->second = _ResolveNoCache(path);
+            accessor->second = ArDefaultResolver::ResolveWithAssetInfo(path, nullptr);
         }
         return accessor->second;
     }
-
-    return _ResolveNoCache(path);
-}
-
-std::string S3Resolver::_ResolveNoCache(const std::string& path)
-{
-    return g_s3.matches_schema(path) ?
-        g_s3.resolve_name(path) :
-        ArDefaultResolver::ResolveWithAssetInfo(path, nullptr);
+    return ArDefaultResolver::ResolveWithAssetInfo(path, nullptr);
 }
 
 VtValue S3Resolver::GetModificationTimestamp(
     const std::string& path,
     const std::string& resolvedPath)
 {
-    TF_DEBUG(USD_S3_RESOLVER).Msg("S3Resolver TIMESTAMP %s \n", path.c_str());
+    if (g_s3.matches_schema(path)) {
+        TF_DEBUG(USD_S3_RESOLVER).Msg("S3Resolver TIMESTAMP %s \n", path.c_str());
+    }
+
     return g_s3.matches_schema(path) ?
            VtValue(g_s3.get_timestamp(path)) :
            ArDefaultResolver::GetModificationTimestamp(path, resolvedPath);
