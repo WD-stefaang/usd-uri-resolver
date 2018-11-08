@@ -3,6 +3,7 @@ An S3 object store based PackageResolver plugin for USD. Based on LumaPictures's
 
 ## Project Goals
 * Support assets in S3 buckets by referencing them in USD as @s3:bucket/object.usd@
+* Support S3 versioning
 
 ## Features
 * Cache USD files to local directory, defaults to /tmp/bucket/object. Change it with USD_S3_CACHE_PATH environment variable
@@ -18,7 +19,7 @@ You'll need the following libraries to build the project; newer versions most li
 | TBB               | 4.3+           |
 | OpenEXR           | 2.2.0+         |
 | Boost             | 1.61.0+        |
-| CMAKE             | 2.8+           |
+| CMAKE             | 3.1+           |
 
 Get the [AWS sdk for C++](https://github.com/aws/aws-sdk-cpp) as follows
 ```
@@ -35,9 +36,6 @@ There are two main ways to configure a library location. 1, configure an environ
 * Pass OPENEXR\_LOCATION to the CMake command or setup the OPENEXR\_LOCATION environment variable. They have to point at a standard build of OpenEXR, including IlmBase.
 * Point TBB\_ROOT\_DIR}, TBB\_INSTALL\_DIR or TBBROOT at your local TBB installation.
 
-## Contributing
-TODO.
-
 ## Using the S3 resolver.
 Get the AWS cli.
 ```
@@ -45,11 +43,11 @@ virtualenv venv
 venv/bin/activate
 pip install awscli
 ```
-Get a VM on [TaaS](https://lvtaas.amplidata.com) and note down the scaler IP address.
+Get the S3 credentials from the ActiveScale system node.
 Now configure the cli (creating `~/.aws/credentials`)
 ```
 aws configure
-alias s3="aws s3 --endpoint-url http://scaler-ip"
+alias s3="aws s3 --endpoint-url http://systemnode-ip"
 ```
 Get some usd assets, e.g. [here](http://graphics.pixar.com/usd/downloads.html).
 ```
@@ -64,3 +62,7 @@ usdview s3:hello/kitchen.usdz
 See .vscode/tasks.json for an example.
 
 For more info, consult the README.md installed alongside the S3Resolver.
+
+
+## Contributing
+TODO.

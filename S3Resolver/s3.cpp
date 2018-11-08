@@ -67,7 +67,7 @@ PXR_NAMESPACE_USING_DIRECTIVE
 namespace {
     constexpr double INVALID_TIME = std::numeric_limits<double>::lowest();
 
-    using mutex_scoped_lock = std::lock_guard<std::mutex>;
+    //using mutex_scoped_lock = std::lock_guard<std::mutex>;
 
     // Otherwise clang static analyser will throw errors.
     template <size_t len> constexpr size_t
@@ -131,7 +131,7 @@ namespace {
         return (env_var_value != nullptr) ? env_var_value : default_value;
     }
 
-    // TODO: this one may be required to fully support versioning
+    // TODO: random names may be required to support multiple versions of the same asset
     // std::string generate_name(const std::string& base, const std::string& extension, char* buffer) {
     //     std::tmpnam(buffer);
     //     std::string ret(buffer);
@@ -158,12 +158,13 @@ namespace usd_s3 {
     struct Cache {
         CacheState state;
         std::string local_path;
-        double timestamp;       // when the object was accessed
-        double date_modified;   // when the object was modified
+        double timestamp;       // date last modified
+        bool is_pinned;         // pinned (versioned) objects don't need to be checked for changes
     };
 
     std::map<std::string, Cache> cached_requests;
 
+    // Resolve an asset with an S3 HEAD request and store the result in the cache
     std::string check_object(const std::string& path, Cache& cache) {
         if (s3_client == nullptr) {
             TF_DEBUG(S3_DBG).Msg("S3: check_object - abort due to s3_client nullptr\n");
@@ -178,6 +179,7 @@ namespace usd_s3 {
         if (uses_versioning(path)) {
             Aws::String object_versionid = get_object_versionid(path).c_str();
             head_request.WithVersionId(object_versionid);
+            cache.is_pinned = true;
             TF_DEBUG(S3_DBG).Msg("S3: check_object bucket: %s and object: %s and version: %s\n",
                 bucket_name.c_str(), object_name.c_str(), object_versionid.c_str());
         } else {
@@ -246,13 +248,14 @@ namespace usd_s3 {
                 }
             }
 
+            // TODO: set the original datemodified on the asset
             Aws::OFStream local_file;
             local_file.open(cache.local_path, std::ios::out | std::ios::binary);
             local_file << get_object_outcome.GetResult().GetBody().rdbuf();
             cache.timestamp = get_object_outcome.GetResult().GetLastModified().SecondsWithMSPrecision();
-            TF_DEBUG(S3_DBG).Msg("S3: fetch_object OK %.0f\n", cache.timestamp);
             //TF_DEBUG(S3_DBG).Msg("S3: fetch_object version: %s\n", get_object_outcome.GetResult().GetVersionId().c_str());
             cache.state = CACHE_FETCHED;
+            TF_DEBUG(S3_DBG).Msg("S3: fetch_object OK %.0f\n", cache.timestamp);
             return true;
         }
         else
@@ -326,9 +329,10 @@ namespace usd_s3 {
             return false;
         }
 
-        if (cached_result->second.state != CACHE_NEEDS_FETCHING) {
+        if (cached_result->second.state != CACHE_NEEDS_FETCHING && !cached_result->second.is_pinned) {
             // ensure cache state is up to date
             // there is no guarantee that get_timestamp was called prior to fetch
+            // note that pinned assets don't get updates
             Cache cache{CACHE_MISSING, ""};
             check_object(path, cache);
             if (cache.timestamp == INVALID_TIME) {
@@ -345,14 +349,23 @@ namespace usd_s3 {
         }
 
         if (cached_result->second.state == CACHE_NEEDS_FETCHING) {
+            if (TfPathExists(local_path)) {
+                double local_date_modified;
+                if (ArchGetModificationTime(local_path.c_str(), &local_date_modified)) {
+                    if (local_date_modified > cached_result->second.timestamp) {
+                        TF_DEBUG(S3_DBG).Msg("S3: fetch_asset - no changes, reuse local cache %.0f > %.0f\n",
+                                local_date_modified, cached_result->second.timestamp);
+                        return true;
+                    } else {
+                        TF_DEBUG(S3_DBG).Msg("S3: fetch_asset - outdated local cache %.0f < %.0f\n",
+                                local_date_modified, cached_result->second.timestamp);
+                    }
+                }
+            }
             TF_DEBUG(S3_DBG).Msg("S3: fetch_asset - cache needed fetching\n");
             cached_result->second.state = CACHE_MISSING; // we'll set this up if fetching is successful
             bool success = fetch_object(path, cached_result->second);
-            if (success) {
-
-            } else {
-
-            }
+            return success;
         } else {
             TF_DEBUG(S3_DBG).Msg("S3: fetch_asset - cache does not need fetch\n");
         }
@@ -378,21 +391,7 @@ namespace usd_s3 {
                     path.c_str());
             return 1.0;
         } else {
-            // Get latest status
-            Cache tmp_cache{CACHE_MISSING, ""};
-            check_object(path, tmp_cache);
-            auto ret = tmp_cache.timestamp;
-            if (ret == INVALID_TIME) {
-                cached_result->second.state = CACHE_MISSING;
-                ret = cached_result->second.timestamp;
-                TF_DEBUG(S3_DBG).Msg("S3: get_timestamp NOK missing %.0f \n", cached_result->second.timestamp);
-            } else if (ret > cached_result->second.timestamp) {
-                cached_result->second.state = CACHE_NEEDS_FETCHING;
-                TF_DEBUG(S3_DBG).Msg("S3: get_timestamp NOK needs fetch - %.0f > %.0f \n", ret, cached_result->second.timestamp);
-            } else {
-                TF_DEBUG(S3_DBG).Msg("S3: get_timestamp OK - %.0f \n", cached_result->second.timestamp);
-            }
-            return ret;
+            return cached_result->second.timestamp;
         }
     }
 

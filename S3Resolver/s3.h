@@ -29,9 +29,9 @@ namespace usd_s3 {
 
         bool matches_schema(const std::string& path);
         double get_timestamp(const std::string& asset_path);
+        bool check_time(const std::string& path, double time);
 
-    private:
-
+        private:
     };
 }
 

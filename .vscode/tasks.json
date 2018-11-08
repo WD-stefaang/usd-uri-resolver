@@ -14,8 +14,9 @@
             "TF_DEBUG_OPTIONS": "AR_RESOLVER_INIT USD_S3_RESOLVER USD_S3_FILEFORMAT SDF_ASSET SDF_LAYER S3_DBG",
             "TF_DEBUG": "USD_S3_RESOLVER USD_S3_FILEFORMAT S3_DBG",
             // configure proxy to an ActiveScale system
-            "USD_S3_PROXY_HOST": "10.249.66.131",
+            "USD_S3_PROXY_HOST": "10.249.66.142",
             "USD_S3_PROXY_PORT": "80",
+            "USD_S3_DATE_CHECK": "Y",
         }
     },
     "tasks": [
@@ -39,7 +40,7 @@
         {
             "label": "direct fetch from S3 - no cache",
             "type": "shell",
-            "command": "rm /tmp/hello -rf; ../../build/bin/usdcat -o ../../dump.usdc s3://hello/kitchen.usdz?versionId=FmpErZBtDpMNI3YZkcm1UjxJ_91yFQJUcUtL0Gtr8gPnLWfK",
+            "command": "rm /tmp/hello -rf; ../../build/bin/usdcat -o ../../dump.usdc s3://hello/kitchen.usdz",
             "group": {
                 "kind": "test",
                 "isDefault": true
