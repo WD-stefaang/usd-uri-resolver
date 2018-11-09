@@ -1,13 +1,22 @@
 # USD-S3-resolver
 An S3 object store based PackageResolver plugin for USD. Based on LumaPictures's URIResolver.
+More info in the [usd-interest](https://groups.google.com/forum/#!topic/usd-interest/JCGGHoz9e2Q) thread.
 
 ## Project Goals
-* Support assets in S3 buckets by referencing them in USD as @s3:bucket/object.usd@
+* Support assets located in S3 buckets
 * Support S3 versioning
+* Maintain compatibility with local assets
 
 ## Features
+* Open assets directly from S3 or reference them as `@s3://bucket/object.usd@`
+* Short notation: `usdview s3:bucket/object.usd`
+* Versioned assets: `usdview s3://bucket/object.usd?versionId=abc_123`
 * Cache USD files to local directory, defaults to /tmp/bucket/object. Change it with USD_S3_CACHE_PATH environment variable
 * Connect to ActiveScale S3 by using environment vars USD_S3_PROXY_HOST and USD_S3_PROXY_PORT.
+
+## Future
+* Integrate with Luma's URIResolver
+* Stream usdz assets using a custom FileFormat + temporary base layer + Stage reload on finish
 
 ## Building
 
@@ -43,13 +52,12 @@ virtualenv venv
 venv/bin/activate
 pip install awscli
 ```
-Get the S3 credentials from the ActiveScale system node.
-Now configure the cli (creating `~/.aws/credentials`)
+Get the S3 credentials from the ActiveScale system node and configure the cli to create the `~/.aws/credentials` file.
 ```
 aws configure
 alias s3="aws s3 --endpoint-url http://systemnode-ip"
 ```
-Get some usd assets, e.g. [here](http://graphics.pixar.com/usd/downloads.html).
+Get some usd assets, e.g. [here](http://graphics.pixar.com/usd/downloads.html) and upload them to a bucket.
 ```
 s3 mb s3://hello
 s3 cp kitchen.usdz s3://hello/kitchen.usdz
